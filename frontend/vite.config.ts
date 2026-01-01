@@ -3,7 +3,8 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
-  // No base path needed for Vercel
+  // Base path for GitHub Pages (repository name)
+  base: process.env.GITHUB_PAGES === 'true' ? '/molecular-draw/' : '/',
   server: {
     port: 5173,
     proxy: {
