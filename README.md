@@ -1,3 +1,9 @@
+#Molecular Draw
+
+
+<img width="1920" height="1080" alt="Screenshot 2026-01-01 at 09 35 22 (2)" src="https://github.com/user-attachments/assets/e84f183e-1f69-40ba-86c2-cf552368cc0d" />
+
+
 I built a system that converts a textual chemical description into a physically realistic, interactive 3D molecular model that runs end-to-end from backend computation to frontend visualization. The project started from studying how chemists represent molecules using **SMILES notation**, and how that abstract string encodes real chemical structure, bonding, and reactivity. While working on this, I also studied **organic chemistry concepts** such as **addition reactions, esterification, functional groups, bond formation, and steric effects**, and mapped those ideas directly into computational representations.
 
 On the backend, I implemented a molecular processing service using **Python and RDKit**. When a SMILES string such as `"CCO"` is submitted, the system parses it into a molecular graph where atoms are nodes and bonds are edges. This mirrors how chemical connectivity is reasoned about during reactions, where the arrangement of atoms and bond orders determines how molecules transform. Since SMILES omits hydrogens by default, I explicitly added hydrogen atoms to satisfy valency rules, which is essential for chemically correct geometry and force-field calculations. This step directly reinforced concepts like carbon tetravalency and hydrogen participation in reactions such as esterification and nucleophilic addition.
