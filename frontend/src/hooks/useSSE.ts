@@ -19,7 +19,8 @@ export function useSSE(taskId: string | null, onProgress: (progress: TaskProgres
       return;
     }
 
-    const eventSource = new EventSource(`http://localhost:8000/tasks/${taskId}/stream`);
+    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+    const eventSource = new EventSource(`${API_BASE_URL}/tasks/${taskId}/stream`);
     eventSourceRef.current = eventSource;
 
     eventSource.onopen = () => {

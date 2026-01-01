@@ -2,7 +2,7 @@ import axios from 'axios';
 import { MolecularStructure } from '../utils/molecular';
 import { TaskProgress } from '../hooks/useSSE';
 
-const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
 
 export interface StructureRequest {
   smiles?: string;
