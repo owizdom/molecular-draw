@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: molecular-draw-backend
+    env: python
+    pythonVersion: 3.11.9
+    buildCommand: pip install --upgrade pip setuptools wheel && pip install --no-cache-dir rdkit && pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: PORT
+        value: 10000
+      - key: GEMINI_API_KEY
+        value: AIzaSyCMYvErOujS2w25oAoKqszmch39cLfic_Y
+
