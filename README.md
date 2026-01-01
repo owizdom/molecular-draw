@@ -1,114 +1,30 @@
-# Molecular Draw
+I built a system that converts a textual chemical description into a physically realistic, interactive 3D molecular model that runs end-to-end from backend computation to frontend visualization. The project started from studying how chemists represent molecules using **SMILES notation**, and how that abstract string encodes real chemical structure, bonding, and reactivity. While working on this, I also studied **organic chemistry concepts** such as **addition reactions, esterification, functional groups, bond formation, and steric effects**, and mapped those ideas directly into computational representations.
 
-AI-powered molecular modeling application with 3D visualization and natural language interface.
+On the backend, I implemented a molecular processing service using **Python and RDKit**. When a SMILES string such as `"CCO"` is submitted, the system parses it into a molecular graph where atoms are nodes and bonds are edges. This mirrors how chemical connectivity is reasoned about during reactions, where the arrangement of atoms and bond orders determines how molecules transform. Since SMILES omits hydrogens by default, I explicitly added hydrogen atoms to satisfy valency rules, which is essential for chemically correct geometry and force-field calculations. This step directly reinforced concepts like carbon tetravalency and hydrogen participation in reactions such as esterification and nucleophilic addition.
 
-## Features
+To move from a purely topological structure to a real spatial molecule, I generated **3D atomic coordinates** using RDKit’s distance geometry embedding. The algorithm constructs a distance matrix based on known bond lengths, angles, and stereochemical constraints, then places atoms in three-dimensional space while satisfying those constraints. This allowed me to study how **molecular shape, bond angles, and spatial orientation** influence reactivity, particularly steric hindrance and functional group accessibility.
 
-- 3D molecular visualization with React Three Fiber
-- AI-powered natural language interface (OpenAI, Gemini, Hugging Face)
-- Structure editor with 118 periodic table elements
-- Real-time task progress with Server-Sent Events
-- Export functionality (MOL, SDF, JSON)
-- 200+ common molecules in instant lookup dictionary
-- Asynchronous task processing with Celery and Redis
+Once the initial geometry was generated, I applied **MMFF94 force-field optimization** to minimize the molecule’s energy. This step reduces unrealistic bond strain, torsional strain, and van der Waals clashes, producing a stable conformation that reflects how real molecules settle into low-energy states. Working with force-field optimization helped me connect chemical theory—such as why molecules adopt certain shapes—to computational energy models.
 
-## Prerequisites
+After optimization, I extracted the final atomic coordinates and bond information and converted them into a structured JSON format. Each atom includes its element type and precise x, y, z coordinates (in angstroms), and each bond records its connectivity and bond order. This clean data model allowed the backend to remain chemistry-focused while exposing a simple API for visualization. I deployed the backend as a service, ensuring deterministic outputs, reproducibility, and efficient response times.
 
-- Python 3.9+
-- Node.js 18+
-- Redis server
-- Python virtual environment
+On the frontend, I built an interactive molecular viewer using **React, Three.js, and React Three Fiber**. The 3D scene is rendered using WebGL with physically based lighting and a perspective camera. Atoms are visualized as spheres positioned directly from the backend-computed coordinates, colored using the **CPK color scheme** so chemical identity is immediately recognizable. Atomic radii are derived from element-specific or van der Waals radii, making spatial size and crowding visually apparent.
 
-## Installation
+Bonds are rendered as cylinders connecting atoms, with orientation calculated using vector math and quaternions to align each bond correctly in 3D space. Bond thickness and appearance reflect bond order, allowing clear visual distinction between single, double, and triple bonds. This made it easy to visually inspect bonding patterns and reason about reaction pathways and bond formation.
 
-### Backend
+I implemented multiple molecular representation modes—ball-and-stick, wireframe, stick, van der Waals, and line models—each emphasizing different chemical properties. For example, van der Waals representations highlight steric bulk and molecular packing, while ball-and-stick models emphasize connectivity and functional groups. These modes directly supported my study of how molecular structure affects chemical behavior.
 
-1. Navigate to the backend directory:
-```bash
-cd backend
-```
+To make the visualization usable and exploratory, I added interactive orbit controls for rotation, zooming, and panning, along with atom selection and highlighting. Clicking an atom updates application state, enabling future extensions such as structure editing, reaction visualization, or functional group substitution.
 
-2. Create and activate a virtual environment:
-```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
+Overall, this project allowed me to deeply study and implement:
 
-3. Install dependencies:
-```bash
-pip install -r requirements.txt
-```
+* Chemical structure representation using SMILES
+* Atomic bonding, valency, and hydrogen saturation
+* 3D molecular geometry and conformational stability
+* Force-field energy minimization (MMFF94)
+* Functional groups and reaction concepts like **addition reactions and esterification**
+* The relationship between chemical theory and computational modeling
+* Backend API design and deployment for scientific computation
+* Real-time 3D rendering and interaction in the browser
 
-4. Set up environment variables:
-Create a `.env` file in the backend directory with:
-```
-OPENAI_API_KEY=your_openai_key_here
-GEMINI_API_KEY=your_gemini_key_here
-HUGGINGFACE_API_KEY=your_huggingface_key_here
-```
-
-### Frontend
-
-1. Navigate to the frontend directory:
-```bash
-cd frontend
-```
-
-2. Install dependencies:
-```bash
-npm install
-```
-
-## Running the Application
-
-### Start Redis
-
-Make sure Redis is running:
-```bash
-redis-server
-```
-
-### Start Backend
-
-1. Activate the virtual environment:
-```bash
-cd backend
-source venv/bin/activate
-```
-
-2. Start the Celery worker:
-```bash
-celery -A app.celery_app worker --loglevel=info
-```
-
-3. In a separate terminal, start the FastAPI server:
-```bash
-cd backend
-source venv/bin/activate
-python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-### Start Frontend
-
-1. Navigate to the frontend directory:
-```bash
-cd frontend
-```
-
-2. Start the development server:
-```bash
-npm run dev
-```
-
-The application will be available at `http://localhost:5173` (or the port shown in the terminal).
-
-## Usage
-
-1. Open the application in your browser
-2. Use the AI chat to create molecules by typing natural language commands like:
-   - "Create methane"
-   - "Create aspirin"
-   - "Create benzene"
-3. View the 3D structure in the molecular viewer
-4. Edit structures using the structure editor
-5. Export structures in MOL, SDF, or JSON format
+The final result is a deployed, full-stack system that transforms a simple text string into a chemically accurate, interactive 3D molecule, allowing users to visually explore structure, bonding, and spatial relationships in real time.
