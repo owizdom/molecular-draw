@@ -19,7 +19,11 @@ export function useSSE(taskId: string | null, onProgress: (progress: TaskProgres
       return;
     }
 
-    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+    // Use Render backend by default, fallback to localhost for development
+    const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
+      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+        ? 'http://localhost:8000' 
+        : 'https://molecular-draw.onrender.com');
     const eventSource = new EventSource(`${API_BASE_URL}/tasks/${taskId}/stream`);
     eventSourceRef.current = eventSource;
 

@@ -2,7 +2,11 @@ import axios from 'axios';
 import { MolecularStructure } from '../utils/molecular';
 import { TaskProgress } from '../hooks/useSSE';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+// Use Render backend by default, fallback to localhost for development
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
+  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+    ? 'http://localhost:8000' 
+    : 'https://molecular-draw.onrender.com');
 
 export interface StructureRequest {
   smiles?: string;
