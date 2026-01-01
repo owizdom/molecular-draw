@@ -121,7 +121,7 @@ export default function AIChat() {
             return;
           } else if ('structure' in genResponse && genResponse.structure) {
             updateStructure(genResponse.structure);
-            const source = (genResponse as any).source || 'unknown';
+            // const source = (genResponse as any).source || 'unknown';
             let message = `I've created the molecule you requested. It's now displayed in the 3D viewer.`;
             setMessages(prev => [...prev, {
               role: 'assistant',

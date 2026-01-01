@@ -141,8 +141,7 @@ const AnimatedMoleculeGroup = memo(({
   targetPos, 
   isAnimating,
   onAtomClick,
-  selectedAtomId,
-  colorOffset = 0
+  selectedAtomId
 }: { 
   structure: MolecularStructure; 
   initialPos: { x: number; y: number; z: number };
@@ -150,7 +149,6 @@ const AnimatedMoleculeGroup = memo(({
   isAnimating: boolean;
   onAtomClick?: (atomId: number) => void;
   selectedAtomId: number | null;
-  colorOffset?: number;
 }) => {
   const groupRef = useRef<THREE.Group>(null);
   const [position, setPosition] = useState(initialPos);
@@ -289,7 +287,6 @@ function Molecule3D({ onAtomClick }: MolecularViewerProps) {
             isAnimating={isReactionAnimating}
             onAtomClick={onAtomClick}
             selectedAtomId={selectedAtomId}
-            colorOffset={0}
           />
         )}
         
@@ -301,7 +298,6 @@ function Molecule3D({ onAtomClick }: MolecularViewerProps) {
             isAnimating={isReactionAnimating}
             onAtomClick={onAtomClick}
             selectedAtomId={selectedAtomId}
-            colorOffset={1}
           />
         )}
         

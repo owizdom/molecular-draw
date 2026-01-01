@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react';
-import { MolecularStructure, Atom, Bond } from '../utils/molecular';
+import { Atom, Bond } from '../utils/molecular';
 import { useMolecularStore } from '../store/molecularStore';
 
 interface StructureEditorProps {
@@ -93,14 +93,14 @@ export default function StructureEditor({ onAtomDelete }: StructureEditorProps) 
     });
   }, [structure, selectedElement, selectedAtomId, updateStructure]);
 
-  const handleDeleteAtom = useCallback((atomId: number) => {
-    if (!structure) return;
-    const newAtoms = structure.atoms.filter(a => a.id !== atomId);
-    const newBonds = structure.bonds.filter(
-      b => b.atom1_id !== atomId && b.atom2_id !== atomId
-    );
-    updateStructure({ ...structure, atoms: newAtoms, bonds: newBonds });
-  }, [structure, updateStructure]);
+  // const handleDeleteAtom = useCallback((atomId: number) => {
+  //   if (!structure) return;
+  //   const newAtoms = structure.atoms.filter(a => a.id !== atomId);
+  //   const newBonds = structure.bonds.filter(
+  //     b => b.atom1_id !== atomId && b.atom2_id !== atomId
+  //   );
+  //   updateStructure({ ...structure, atoms: newAtoms, bonds: newBonds });
+  // }, [structure, updateStructure]);
 
   const handleClear = useCallback(() => {
     updateStructure({ atoms: [], bonds: [] });
