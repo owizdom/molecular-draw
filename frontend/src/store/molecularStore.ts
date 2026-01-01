@@ -12,12 +12,22 @@ interface MolecularStore {
   taskProgress: TaskProgress | null;
   isTaskRunning: boolean;
   
+  // Reaction state
+  reactionCollision: any | null;
+  isReactionAnimating: boolean;
+  
+  // Visualization state
+  representationMode: 'ball-and-stick' | 'wireframe' | 'stick' | 'van-der-waals' | 'line';
+  
   // Actions
   setStructure: (structure: MolecularStructure | null) => void;
   setSelectedAtomId: (atomId: number | null) => void;
   setCurrentTaskId: (taskId: string | null) => void;
   setTaskProgress: (progress: TaskProgress | null) => void;
   setIsTaskRunning: (running: boolean) => void;
+  setReactionCollision: (collision: any | null) => void;
+  setIsReactionAnimating: (animating: boolean) => void;
+  setRepresentationMode: (mode: 'ball-and-stick' | 'wireframe' | 'stick' | 'van-der-waals' | 'line') => void;
   
   // Helper actions
   updateStructure: (structure: MolecularStructure) => void;
@@ -31,6 +41,9 @@ export const useMolecularStore = create<MolecularStore>((set) => ({
   currentTaskId: null,
   taskProgress: null,
   isTaskRunning: false,
+  reactionCollision: null,
+  isReactionAnimating: false,
+  representationMode: 'ball-and-stick',
   
   // Actions
   setStructure: (structure) => set({ structure }),
@@ -41,6 +54,9 @@ export const useMolecularStore = create<MolecularStore>((set) => ({
     isTaskRunning: progress?.status === 'processing' || progress?.status === 'pending'
   }),
   setIsTaskRunning: (running) => set({ isTaskRunning: running }),
+  setReactionCollision: (collision) => set({ reactionCollision: collision }),
+  setIsReactionAnimating: (animating) => set({ isReactionAnimating: animating }),
+  setRepresentationMode: (mode) => set({ representationMode: mode }),
   
   // Helper actions
   updateStructure: (structure) => set({ structure }),

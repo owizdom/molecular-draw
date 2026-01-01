@@ -33,9 +33,16 @@ export default function AIChat() {
       // Handle structure generation
       if (progress.result.structure && !progress.result.response) {
         updateStructure(progress.result.structure);
+        const source = progress.result.source || 'unknown';
+        let message = `I've created the molecule you requested. It's now displayed in the 3D viewer.`;
+        if (source === 'fallback') {
+          message += ` (From common molecules database)`;
+        } else if (source === 'ai') {
+          message += ` (Generated with AI)`;
+        }
         setMessages(prev => [...prev, {
           role: 'assistant',
-          content: `I've created the molecule you requested. It's now displayed in the 3D viewer.`
+          content: message
         }]);
       }
       
@@ -76,14 +83,19 @@ export default function AIChat() {
                                   !structure;
       
       if (isGenerationRequest) {
-        // Try to generate structure (may be instant for common molecules)
+        // Try to generate structure (may be instant for common molecules or PubChem)
         try {
           const genResponse = await molecularAPI.generateStructure(userMessage, false);
           if ('structure' in genResponse && genResponse.structure) {
             updateStructure(genResponse.structure);
+            const source = (genResponse as any).source || 'unknown';
+            let message = `I've created the molecule you requested. It's now displayed in the 3D viewer.`;
+            if (source === 'fallback') {
+              message += ` (From common molecules database)`;
+            }
             setMessages(prev => [...prev, {
               role: 'assistant',
-              content: `I've created the molecule you requested. It's now displayed in the 3D viewer.`
+              content: message
             }]);
             setLoading(false);
             return;
@@ -104,14 +116,16 @@ export default function AIChat() {
             setTaskProgress({
               task_id: taskResponse.task_id,
               status: 'processing',
-              message: 'Searching for molecule...',
+              message: taskResponse.message || 'Searching PubChem and AI...',
             });
             return;
           } else if ('structure' in genResponse && genResponse.structure) {
             updateStructure(genResponse.structure);
+            const source = (genResponse as any).source || 'unknown';
+            let message = `I've created the molecule you requested. It's now displayed in the 3D viewer.`;
             setMessages(prev => [...prev, {
               role: 'assistant',
-              content: `I've created the molecule you requested. It's now displayed in the 3D viewer.`
+              content: message
             }]);
             setLoading(false);
             return;
@@ -195,23 +209,22 @@ export default function AIChat() {
 
   return (
     <div className="flex flex-col h-full bg-transparent">
-      {/* Modern Header */}
-      <div className="p-4 border-b border-slate-200/50 bg-white/40 backdrop-blur-sm">
-        <h3 className="text-sm font-semibold text-slate-900">AI Assistant</h3>
-        <p className="text-xs text-slate-500 mt-0.5">Ask me to create or modify molecules</p>
+      {/* Minimal Header */}
+      <div className="px-4 py-3 border-b border-slate-200/60 bg-white/50">
+        <h3 className="text-sm font-semibold text-slate-800">AI Assistant</h3>
       </div>
 
       {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 scroll-smooth">
+      <div className="flex-1 overflow-y-auto p-3 space-y-2.5 scroll-smooth">
         {messages.length === 0 && (
-          <div className="space-y-3">
-            <p className="text-xs font-medium text-slate-500 uppercase tracking-wide">Quick Start</p>
-            <div className="grid grid-cols-1 gap-2">
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-slate-400 uppercase tracking-wide mb-2">Quick Start</p>
+            <div className="grid grid-cols-1 gap-1.5">
               {quickPrompts.map((prompt, idx) => (
                 <button
                   key={idx}
                   onClick={() => handleQuickPrompt(prompt)}
-                  className="text-left px-3 py-2 bg-white/60 hover:bg-white/80 border border-slate-200/50 rounded-lg text-sm text-slate-700 hover:text-slate-900 transition-all hover:shadow-sm active:scale-[0.98]"
+                  className="text-left px-3 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200/60 rounded-md text-xs text-slate-600 hover:text-slate-800 transition-colors"
                 >
                   {prompt}
                 </button>
@@ -226,10 +239,10 @@ export default function AIChat() {
             className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-in fade-in slide-in-from-bottom-2 duration-200`}
           >
             <div
-              className={`max-w-[80%] rounded-lg px-3 py-2 text-sm ${
+              className={`max-w-[85%] rounded-md px-2.5 py-1.5 text-xs ${
                 msg.role === 'user'
-                  ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-sm'
-                  : 'bg-white/80 border border-slate-200/50 text-slate-700 shadow-sm'
+                  ? 'bg-blue-500 text-white'
+                  : 'bg-slate-50 border border-slate-200/60 text-slate-700'
               }`}
             >
               <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
@@ -274,21 +287,21 @@ export default function AIChat() {
       </div>
 
       {/* Input Area */}
-      <div className="p-4 border-t border-slate-200/50 bg-white/40 backdrop-blur-sm">
-        <div className="flex gap-2">
+      <div className="px-3 py-2.5 border-t border-slate-200/60 bg-white/50">
+        <div className="flex gap-1.5">
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyPress={handleKeyPress}
-            placeholder="Ask me to create or modify a molecule..."
-            className="flex-1 bg-white/80 border border-slate-200/50 text-slate-900 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+            placeholder="Create molecule..."
+            className="flex-1 bg-white border border-slate-200/60 text-slate-700 rounded-md px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-300 transition-all placeholder:text-slate-400"
             disabled={loading}
           />
           <button
             onClick={handleSend}
             disabled={loading || !input.trim()}
-            className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 disabled:from-slate-300 disabled:to-slate-400 disabled:cursor-not-allowed text-white px-6 py-2.5 rounded-lg text-sm font-medium shadow-sm hover:shadow-md transition-all active:scale-95"
+            className="bg-blue-500 hover:bg-blue-600 disabled:bg-slate-300 disabled:cursor-not-allowed text-white px-3 py-1.5 rounded-md text-xs font-medium transition-colors"
           >
             Send
           </button>

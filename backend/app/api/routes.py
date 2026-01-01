@@ -1,11 +1,14 @@
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.responses import Response, StreamingResponse
+from typing import Optional
 from app.models.molecular import (
     StructureRequest, StructureResponse, ChatMessage, ChatResponse
 )
 from app.services.molecular_service import MolecularService
 from app.services.ai_service import AIService
 from app.services.structure_generator import StructureGenerator
+from app.services.reaction_service import ReactionService
+from app.services.pubchem_service import PubChemService
 from app.tasks.molecular_tasks import (
     task_smiles_to_structure,
     task_process_chat,
@@ -30,6 +33,8 @@ router = APIRouter()
 molecular_service = MolecularService()
 ai_service = AIService()
 structure_generator = StructureGenerator()
+reaction_service = ReactionService()
+pubchem_service = PubChemService()
 
 @router.post("/structure/from-smiles", response_model=StructureResponse)
 async def structure_from_smiles(request: StructureRequest, async_task: bool = False):
@@ -132,32 +137,52 @@ async def chat(message: ChatMessage, async_task: bool = True):
 
 @router.post("/structure/generate")
 async def generate_structure(description: dict, async_task: bool = True):
-    """Generate structure from natural language description. Uses async task only for AI calls."""
-    desc = description.get("description", "")
-    if not desc:
+    """
+    Generate molecular structure from natural language description.
+    Priority: 1) PubChem (FIRST), 2) Common molecules, 3) AI (last).
+    """
+    description_text = description.get('description', '')
+    if not description_text:
         raise HTTPException(status_code=400, detail="Description is required")
     
-    # Try fast fallback first (common molecules)
-    desc_lower = desc.lower().strip()
-    common_molecules = ['water', 'h2o', 'methane', 'ch4', 'ethane', 'ethanol', 'benzene', 'aspirin', 'caffeine']
+    # PRIORITY 1: Try PubChem FIRST (before anything else)
+    import re
+    molecule_name = re.sub(r'\b(create|generate|make|show|build|draw|display)\b', '', description_text, flags=re.IGNORECASE).strip()
+    molecule_name = molecule_name.strip('.,!?').strip()
     
-    if any(mol in desc_lower for mol in common_molecules):
-        # Try instant generation
-        structure = structure_generator.generate_from_text(desc)
-        if structure:
-            return {"structure": structure}
+    if molecule_name and len(molecule_name) > 2:
+        try:
+            pubchem_result = pubchem_service.search_by_name(molecule_name)
+            if pubchem_result and pubchem_result.get('smiles'):
+                structure = molecular_service.smiles_to_structure(pubchem_result['smiles'])
+                if structure:
+                    return {
+                        "structure": structure.dict(),
+                        "source": "pubchem",
+                        "cid": pubchem_result.get('cid'),
+                        "pubchem_name": pubchem_result.get('name')
+                    }
+        except Exception as e:
+            print(f"PubChem search failed: {e}")
+            # Continue to next priority
     
-    # For complex requests, use async task
+    # PRIORITY 2: Try common molecules and PubChem via ai_service (which also checks PubChem)
+    structure = ai_service.generate_structure_from_text(description_text)
+    if structure:
+        # If we got here and PubChem didn't work above, it's from common molecules
+        return {"structure": structure.dict(), "source": "fallback"}
+    
+    # PRIORITY 3: Use async task for AI-powered generation (only if PubChem and common molecules failed)
     if async_task:
-        task = task_generate_structure.delay(desc)
-        return {"task_id": task.id, "status": "processing", "message": "Structure generation task submitted"}
+        task = task_generate_structure.delay(description_text)
+        return {"task_id": task.id, "status": "processing", "message": "Searching PubChem and AI..."}
     
-    # Synchronous processing (fallback)
-    structure = structure_generator.generate_from_text(desc)
+    # Synchronous AI generation (fallback)
+    structure = structure_generator.generate_from_text(description_text)
     if not structure:
-        raise HTTPException(status_code=500, detail="Could not generate structure from description")
+        raise HTTPException(status_code=400, detail="Could not generate structure from description")
     
-    return {"structure": structure}
+    return {"structure": structure.dict(), "source": "ai"}
 
 @router.post("/structure/optimize")
 async def optimize_structure(structure: StructureRequest, async_task: bool = True):
@@ -415,3 +440,169 @@ async def export_json(structure: StructureRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Export error: {str(e)}")
 
+
+
+@router.post("/reaction/combine")
+async def combine_molecules(request: dict):
+    """
+    Combine two molecules and predict reaction products.
+    Expects: { "reactant1": { "smiles": "...", "structure": {...} }, "reactant2": { "smiles": "...", "structure": {...} } }
+    """
+    try:
+        reactant1 = request.get('reactant1', {})
+        reactant2 = request.get('reactant2', {})
+        
+        # Get SMILES - try from smiles field first, then convert from structure
+        smiles1 = reactant1.get('smiles')
+        smiles2 = reactant2.get('smiles')
+        
+        # If SMILES not provided, try to convert from structure
+        if not smiles1 and reactant1.get('structure'):
+            from app.models.molecular import MolecularStructure
+            struct1 = MolecularStructure(**reactant1['structure'])
+            smiles1 = molecular_service.structure_to_smiles(struct1)
+        
+        if not smiles2 and reactant2.get('structure'):
+            from app.models.molecular import MolecularStructure
+            struct2 = MolecularStructure(**reactant2['structure'])
+            smiles2 = molecular_service.structure_to_smiles(struct2)
+        
+        if not smiles1 or not smiles2:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Both reactants must have SMILES strings. Reactant1: {'missing' if not smiles1 else 'ok'}, Reactant2: {'missing' if not smiles2 else 'ok'}"
+            )
+        
+        # Validate and sanitize SMILES before calling reaction service
+        from rdkit import Chem
+        
+        # Function to sanitize SMILES (remove explicit hydrogens, canonicalize)
+        def sanitize_smiles(smiles: str) -> Optional[str]:
+            """Sanitize SMILES by removing explicit hydrogens and canonicalizing."""
+            try:
+                # Try to parse the SMILES as-is first
+                mol = Chem.MolFromSmiles(smiles)
+                if mol:
+                    # Remove explicit hydrogens and get canonical SMILES
+                    mol = Chem.RemoveHs(mol)
+                    canonical = Chem.MolToSmiles(mol, canonical=True)
+                    return canonical
+                
+                # If parsing fails, try aggressive cleaning
+                # This handles malformed SMILES with explicit hydrogens
+                cleaned = smiles
+                # Remove all [H] patterns
+                import re
+                cleaned = re.sub(r'\[H\]', '', cleaned)
+                cleaned = re.sub(r'\(\[H\]\)', '', cleaned)
+                # Fix aromatic ring notation
+                cleaned = cleaned.replace('C1=', 'c1=').replace('=C1', '=c1')
+                cleaned = cleaned.replace('C1', 'c1').replace('=1', '1')
+                # Remove empty parentheses
+                cleaned = re.sub(r'\(\)', '', cleaned)
+                
+                # Try parsing cleaned version
+                if cleaned and cleaned != smiles:
+                    mol = Chem.MolFromSmiles(cleaned)
+                    if mol:
+                        mol = Chem.RemoveHs(mol)
+                        return Chem.MolToSmiles(mol, canonical=True)
+                
+                # Last resort: if structure is available, try converting from structure
+                return None
+            except Exception as e:
+                print(f"Error sanitizing SMILES {smiles}: {e}")
+                return None
+        
+        # Sanitize both SMILES
+        sanitized_smiles1 = sanitize_smiles(smiles1)
+        sanitized_smiles2 = sanitize_smiles(smiles2)
+        
+        if not sanitized_smiles1:
+            raise HTTPException(status_code=400, detail=f"Invalid SMILES for reactant 1: {smiles1}")
+        if not sanitized_smiles2:
+            raise HTTPException(status_code=400, detail=f"Invalid SMILES for reactant 2: {smiles2}")
+        
+        # Use sanitized SMILES for reaction
+        smiles1 = sanitized_smiles1
+        smiles2 = sanitized_smiles2
+        
+        # Predict reaction
+        reaction_result = reaction_service.predict_reaction(smiles1, smiles2)
+        
+        if not reaction_result.get('success'):
+            raise HTTPException(status_code=400, detail=reaction_result.get('error', 'Reaction prediction failed'))
+        
+        # Simulate collision
+        reactant1_struct = None
+        reactant2_struct = None
+        
+        # Try to get structures for collision animation
+        try:
+            if reactant1.get('structure'):
+                from app.models.molecular import MolecularStructure
+                try:
+                    reactant1_struct = MolecularStructure(**reactant1['structure'])
+                except:
+                    reactant1_struct = molecular_service.smiles_to_structure(smiles1)
+            else:
+                reactant1_struct = molecular_service.smiles_to_structure(smiles1)
+            
+            if reactant2.get('structure'):
+                from app.models.molecular import MolecularStructure
+                try:
+                    reactant2_struct = MolecularStructure(**reactant2['structure'])
+                except:
+                    reactant2_struct = molecular_service.smiles_to_structure(smiles2)
+            else:
+                reactant2_struct = molecular_service.smiles_to_structure(smiles2)
+        except Exception as e:
+            print(f"Warning: Could not create structures for collision animation: {e}")
+            # Continue without collision data - reaction still works
+        
+        
+        if reactant1_struct and reactant2_struct:
+            collision_data = reaction_service.simulate_collision(reactant1_struct, reactant2_struct)
+            reaction_result['collision'] = collision_data
+        
+        return reaction_result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Reaction error: {str(e)}")
+
+
+@router.get("/structure/search/pubchem")
+async def search_pubchem(name: str = None, cid: int = None):
+    """
+    Search PubChem database by compound name or CID.
+    Returns compound data including SMILES.
+    """
+    try:
+        if cid:
+            result = pubchem_service.get_compound_by_cid(cid)
+        elif name:
+            result = pubchem_service.search_by_name(name)
+        else:
+            raise HTTPException(status_code=400, detail="Either 'name' or 'cid' parameter is required")
+        
+        if not result:
+            raise HTTPException(status_code=404, detail="Compound not found in PubChem")
+        
+        # Convert SMILES to structure if available
+        structure = None
+        if result.get('smiles'):
+            structure = molecular_service.smiles_to_structure(result['smiles'])
+        
+        return {
+            "source": "pubchem",
+            "cid": result.get('cid'),
+            "name": result.get('name'),
+            "smiles": result.get('smiles'),
+            "formula": result.get('formula'),
+            "molecular_weight": result.get('molecular_weight'),
+            "iupac_name": result.get('iupac_name'),
+            "structure": structure.dict() if structure else None
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"PubChem search error: {str(e)}")

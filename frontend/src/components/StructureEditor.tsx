@@ -120,32 +120,32 @@ export default function StructureEditor({ onAtomDelete }: StructureEditorProps) 
   }
 
   return (
-    <div className="p-4 bg-white/60 border border-slate-200/50 rounded-lg space-y-4 shadow-sm">
+    <div className="bg-white/80 border border-slate-200/60 rounded-lg p-3 space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-slate-900">Structure Editor</h3>
-        <div className="text-xs text-slate-500">
-          {stats.atoms} atoms · {stats.bonds} bonds
+        <h3 className="text-xs font-semibold text-slate-800">Editor</h3>
+        <div className="text-xs text-slate-400">
+          {stats.atoms} · {stats.bonds}
         </div>
       </div>
       
       {/* Mode Toggle */}
-      <div className="flex gap-2 p-1 bg-slate-100 rounded-lg">
+      <div className="flex gap-1 p-0.5 bg-slate-100 rounded-md">
         <button
           onClick={() => setEditingMode('add')}
-          className={`flex-1 px-3 py-2 rounded-md text-sm font-medium transition-all ${
+          className={`flex-1 px-2 py-1 rounded text-xs font-medium transition-colors ${
             editingMode === 'add'
-              ? 'bg-white text-slate-900 shadow-sm'
-              : 'text-slate-600 hover:text-slate-900'
+              ? 'bg-white text-slate-800 shadow-sm'
+              : 'text-slate-500 hover:text-slate-700'
           }`}
         >
           Add
         </button>
         <button
           onClick={() => setEditingMode('delete')}
-          className={`flex-1 px-3 py-2 rounded-md text-sm font-medium transition-all ${
+          className={`flex-1 px-2 py-1 rounded text-xs font-medium transition-colors ${
             editingMode === 'delete'
-              ? 'bg-white text-slate-900 shadow-sm'
-              : 'text-slate-600 hover:text-slate-900'
+              ? 'bg-white text-slate-800 shadow-sm'
+              : 'text-slate-500 hover:text-slate-700'
           }`}
         >
           Delete
@@ -153,13 +153,13 @@ export default function StructureEditor({ onAtomDelete }: StructureEditorProps) 
       </div>
 
       {editingMode === 'add' && (
-        <div className="space-y-3">
+        <div className="space-y-2">
           <div>
-            <label className="block text-xs font-medium text-slate-700 mb-1.5">Element</label>
+            <label className="block text-xs font-medium text-slate-600 mb-1">Element</label>
             <select
               value={selectedElement}
               onChange={(e) => setSelectedElement(e.target.value)}
-              className="w-full bg-white border border-slate-200 text-slate-900 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full bg-white border border-slate-200/60 text-slate-700 rounded-md px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-400 focus:border-blue-300"
             >
               {ELEMENTS.map(el => (
                 <option key={el} value={el}>{el}</option>
@@ -168,27 +168,27 @@ export default function StructureEditor({ onAtomDelete }: StructureEditorProps) 
           </div>
 
           {selectedAtomId !== null && selectedAtomId !== undefined ? (
-            <div className="p-2 bg-blue-50 rounded-lg border border-blue-200">
-              <p className="text-xs text-blue-700 mb-2">
-                Atom {selectedAtomId} selected - new atom will be connected
+            <div className="p-2 bg-blue-50 rounded border border-blue-200/60">
+              <p className="text-xs text-blue-700 mb-1.5">
+                Atom {selectedAtomId} - will connect
               </p>
               <button
                 onClick={handleAddAtom}
-                className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm hover:shadow-md transition-all active:scale-95"
+                className="w-full bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded-md text-xs font-medium transition-colors"
               >
-                Add Connected Atom
+                Add Connected
               </button>
             </div>
           ) : (
-            <div className="space-y-2">
-              <p className="text-xs text-slate-500">
-                Click an atom in the 3D viewer to connect a new atom to it
+            <div className="space-y-1.5">
+              <p className="text-xs text-slate-400">
+                Click atom to connect
               </p>
               <button
                 onClick={handleAddAtom}
-                className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm hover:shadow-md transition-all active:scale-95"
+                className="w-full bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded-md text-xs font-medium transition-colors"
               >
-                Add Atom (unconnected)
+                Add Atom
               </button>
             </div>
           )}
@@ -196,28 +196,28 @@ export default function StructureEditor({ onAtomDelete }: StructureEditorProps) 
       )}
 
       {editingMode === 'delete' && (
-        <div className="space-y-3">
-          <p className="text-xs text-slate-500">Click atoms in the 3D viewer to select them</p>
+        <div className="space-y-2">
+          <p className="text-xs text-slate-400">Click atoms to select</p>
           {selectedAtomId !== null && selectedAtomId !== undefined && (
-            <div className="space-y-2 p-3 bg-slate-50 rounded-lg border border-slate-200">
-              <p className="text-xs font-medium text-slate-700">Atom {selectedAtomId} selected</p>
+            <div className="space-y-1.5 p-2 bg-slate-50 rounded border border-slate-200/60">
+              <p className="text-xs font-medium text-slate-700">Atom {selectedAtomId}</p>
               <button
                 onClick={() => onAtomDelete?.(selectedAtomId)}
-                className="w-full bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm hover:shadow-md transition-all active:scale-95"
+                className="w-full bg-red-500 hover:bg-red-600 text-white px-3 py-1.5 rounded-md text-xs font-medium transition-colors"
               >
-                Delete Atom
+                Delete
               </button>
             </div>
           )}
         </div>
       )}
 
-      <div className="pt-3 border-t border-slate-200">
+      <div className="pt-2 border-t border-slate-200/60">
         <button
           onClick={handleClear}
-          className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg text-sm font-medium transition-all active:scale-95"
+          className="w-full bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-1.5 rounded-md text-xs font-medium transition-colors"
         >
-          Clear Structure
+          Clear
         </button>
       </div>
     </div>

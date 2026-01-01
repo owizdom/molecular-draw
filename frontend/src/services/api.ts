@@ -87,5 +87,28 @@ export const molecularAPI = {
     });
     return response.data;
   },
+
+  combineMolecules: async (reactant1: { smiles: string; structure?: MolecularStructure }, 
+                           reactant2: { smiles: string; structure?: MolecularStructure }): Promise<any> => {
+    const response = await api.post('/reaction/combine', {
+      reactant1: {
+        smiles: reactant1.smiles,
+        structure: reactant1.structure
+      },
+      reactant2: {
+        smiles: reactant2.smiles,
+        structure: reactant2.structure
+      }
+    });
+    return response.data;
+  },
+
+  searchPubChem: async (name?: string, cid?: number): Promise<any> => {
+    const params = new URLSearchParams();
+    if (name) params.append('name', name);
+    if (cid) params.append('cid', cid.toString());
+    const response = await api.get(`/structure/search/pubchem?${params.toString()}`);
+    return response.data;
+  },
 };
 

@@ -56,29 +56,60 @@ class MolecularService:
     def structure_to_smiles(structure: MolecularStructure) -> Optional[str]:
         """Convert molecular structure to SMILES string."""
         try:
+            # If structure has SMILES already stored, use it (most reliable)
+            if hasattr(structure, 'smiles') and structure.smiles:
+                # Validate and return canonical version
+                mol = Chem.MolFromSmiles(structure.smiles)
+                if mol:
+                    mol = Chem.RemoveHs(mol)
+                    return Chem.MolToSmiles(mol, canonical=True)
+            
+            # Otherwise, reconstruct from atoms and bonds
             mol = Chem.RWMol()
             
-            # Add atoms - handle both cases: with and without explicit IDs
+            # Add atoms - skip hydrogen atoms (they'll be added implicitly)
             atom_map = {}
             for idx, atom in enumerate(structure.atoms):
+                # Skip explicit hydrogens - RDKit will add them automatically
+                if atom.element.upper() == 'H':
+                    continue
                 rdkit_atom = Chem.Atom(atom.element)
                 rdkit_idx = mol.AddAtom(rdkit_atom)
                 # Map by ID if available, otherwise by index
                 atom_key = atom.id if atom.id is not None else idx
                 atom_map[atom_key] = rdkit_idx
             
-            # Add bonds
+            # Add bonds (only between non-hydrogen atoms)
             for bond in structure.bonds:
                 atom1_idx = atom_map.get(bond.atom1_id)
                 atom2_idx = atom_map.get(bond.atom2_id)
+                # Only add bond if both atoms are in the map (i.e., not hydrogens)
                 if atom1_idx is not None and atom2_idx is not None:
-                    mol.AddBond(
-                        atom1_idx,
-                        atom2_idx,
-                        Chem.BondType(int(bond.bond_type))
-                    )
+                    try:
+                        mol.AddBond(
+                            atom1_idx,
+                            atom2_idx,
+                            Chem.BondType(int(bond.bond_type))
+                        )
+                    except:
+                        # If bond type is invalid, default to single bond
+                        mol.AddBond(atom1_idx, atom2_idx, Chem.BondType.SINGLE)
             
-            smiles = Chem.MolToSmiles(mol)
+            # Sanitize the molecule
+            try:
+                Chem.SanitizeMol(mol)
+            except Exception as e:
+                print(f"Sanitization warning: {e}")
+                # Try to fix common issues
+                try:
+                    # Set aromaticity
+                    Chem.SetAromaticity(mol)
+                except:
+                    pass
+            
+            # Get canonical SMILES (without explicit hydrogens)
+            mol = Chem.RemoveHs(mol)
+            smiles = Chem.MolToSmiles(mol, canonical=True)
             return smiles
         except Exception as e:
             print(f"Error converting structure to SMILES: {e}")

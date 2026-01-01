@@ -108,22 +108,46 @@ def task_generate_structure(self, description: str) -> Dict[str, Any]:
         self.update_state(state="PROGRESS", meta={"current": 0, "total": 4, "message": "Analyzing description..."})
         _publish_progress(self.request.id, "processing", "Analyzing description...", 0, 4)
         
-        self.update_state(state="PROGRESS", meta={"current": 1, "total": 4, "message": "Searching web for molecule..."})
-        _publish_progress(self.request.id, "processing", "Searching web for molecule...", 1, 4)
+        self.update_state(state="PROGRESS", meta={"current": 1, "total": 5, "message": "Searching PubChem database..."})
+        _publish_progress(self.request.id, "processing", "Searching PubChem database...", 1, 5)
         
-        self.update_state(state="PROGRESS", meta={"current": 2, "total": 4, "message": "Generating SMILES notation..."})
-        _publish_progress(self.request.id, "processing", "Generating SMILES notation...", 2, 4)
+        # Try PubChem first
+        from app.services.pubchem_service import PubChemService
+        pubchem_service = PubChemService()
+        import re
+        molecule_name = re.sub(r'\b(create|generate|make|show|build|draw|display)\b', '', description, flags=re.IGNORECASE).strip()
+        molecule_name = molecule_name.strip('.,!?').strip()
+        
+        if molecule_name and len(molecule_name) > 2:
+            pubchem_result = pubchem_service.search_by_name(molecule_name)
+            if pubchem_result and pubchem_result.get('smiles'):
+                from app.services.molecular_service import MolecularService
+                structure = MolecularService.smiles_to_structure(pubchem_result['smiles'])
+                if structure:
+                    result = {
+                        "structure": structure.dict(),
+                        "source": "pubchem",
+                        "cid": pubchem_result.get('cid')
+                    }
+                    _publish_progress(self.request.id, "completed", f"Found in PubChem (CID: {pubchem_result.get('cid')})", 5, 5, result)
+                    return result
+        
+        self.update_state(state="PROGRESS", meta={"current": 2, "total": 5, "message": "Searching with AI..."})
+        _publish_progress(self.request.id, "processing", "Searching with AI...", 2, 5)
+        
+        self.update_state(state="PROGRESS", meta={"current": 3, "total": 5, "message": "Generating SMILES notation..."})
+        _publish_progress(self.request.id, "processing", "Generating SMILES notation...", 3, 5)
         
         structure = structure_generator.generate_from_text(description)
         if not structure:
             _publish_progress(self.request.id, "failed", "Could not generate structure from description", 0, 4)
             return {"error": "Could not generate structure from description", "structure": None}
         
-        self.update_state(state="PROGRESS", meta={"current": 3, "total": 4, "message": "Creating 3D structure..."})
-        _publish_progress(self.request.id, "processing", "Creating 3D structure...", 3, 4)
+        self.update_state(state="PROGRESS", meta={"current": 4, "total": 5, "message": "Creating 3D structure..."})
+        _publish_progress(self.request.id, "processing", "Creating 3D structure...", 4, 5)
         
-        result = {"structure": structure.dict()}
-        _publish_progress(self.request.id, "completed", "Structure generated successfully", 4, 4, result)
+        result = {"structure": structure.dict(), "source": "ai"}
+        _publish_progress(self.request.id, "completed", "Structure generated successfully", 5, 5, result)
         return result
     except Exception as e:
         _publish_progress(self.request.id, "failed", f"Error: {str(e)}", 0, 3)

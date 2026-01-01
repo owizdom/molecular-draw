@@ -2,6 +2,7 @@ import os
 from typing import Optional
 from app.models.molecular import MolecularStructure, ChatMessage, ChatResponse
 from app.services.molecular_service import MolecularService
+from app.services.pubchem_service import PubChemService
 from dotenv import load_dotenv
 import re
 import requests
@@ -37,6 +38,9 @@ except ImportError:
 
 class AIService:
     def __init__(self):
+        # Initialize PubChem service
+        self.pubchem_service = PubChemService()
+        
         # Initialize OpenAI if available
         self.openai_client = None
         if OPENAI_AVAILABLE:
@@ -620,17 +624,27 @@ Always respond in a helpful, educational manner. When suggesting structures, pro
     
     def generate_structure_from_text(self, description: str) -> Optional[MolecularStructure]:
         """Generate molecular structure from natural language description."""
-        # Always try fallback first (instant for common molecules)
+        # Extract molecule name from description FIRST (before checking common molecules)
+        # Remove common verbs like "create", "generate", "make", "show"
+        molecule_name = re.sub(r'\b(create|generate|make|show|build|draw|display)\b', '', description, flags=re.IGNORECASE).strip()
+        molecule_name = molecule_name.strip('.,!?').strip()
+        
+        # PRIORITY 1: Try PubChem FIRST (fastest, most reliable for known compounds)
+        if molecule_name and len(molecule_name) > 2:
+            print(f"Searching PubChem for: {molecule_name}")
+            pubchem_result = self.pubchem_service.search_by_name(molecule_name)
+            if pubchem_result and pubchem_result.get('smiles'):
+                structure = MolecularService.smiles_to_structure(pubchem_result['smiles'])
+                if structure:
+                    print(f"Found in PubChem (CID: {pubchem_result.get('cid')}): {pubchem_result.get('smiles')}")
+                    return structure
+        
+        # PRIORITY 2: Try fallback (instant for common molecules)
         smiles = self._fallback_generate_smiles(description)
         if smiles:
             structure = MolecularService.smiles_to_structure(smiles)
             if structure:
                 return structure
-        
-        # Extract molecule name from description
-        # Remove common verbs like "create", "generate", "make", "show"
-        molecule_name = re.sub(r'\b(create|generate|make|show|build|draw|display)\b', '', description, flags=re.IGNORECASE).strip()
-        molecule_name = molecule_name.strip('.,!?').strip()
         
         # Check if it's a chemical formula (contains subscripts or numbers)
         # Normalize chemical formulas (C₄H₁₀O -> C4H10O)
